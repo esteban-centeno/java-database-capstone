@@ -9,6 +9,8 @@ _As a [user role], I want [feature/goal], so that [reason]._
 3. [Criteria 3]
 
 **Priority:** [High/Medium/Low]
+
 **Story Points:** [Estimated Effort in Points]
+
 **Notes:**
 - [Additional information or edge cases]
