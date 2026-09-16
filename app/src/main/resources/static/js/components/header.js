@@ -1,4 +1,247 @@
 /*
+ * header.js
+ *
+ * Dynamically renders the application header based on:
+ * - Current page
+ * - User role
+ * - Authentication token
+ * - Available user actions
+ */
+
+function renderHeader() {
+
+    // Select header container
+    const headerDiv = document.getElementById("header");
+
+    if (!headerDiv) {
+        return;
+    }
+
+    /*
+     * Root page handling
+     * Removes any previous session information and displays
+     * only the logo and application title.
+     */
+    if (window.location.pathname.endsWith("/")) {
+
+        localStorage.removeItem("userRole");
+
+        headerDiv.innerHTML = `
+            <header class="header">
+
+                <div class="logo-section">
+                    <img src="../assets/images/logo/logo.png"
+                         alt="Hospital CRM Logo"
+                         class="logo-img">
+
+                    <span class="logo-title">
+                        Hospital CMS
+                    </span>
+                </div>
+
+            </header>
+        `;
+
+        return;
+    }
+
+
+    // Retrieve user session data
+    const role = localStorage.getItem("userRole");
+    const token = localStorage.getItem("token");
+
+
+    /*
+     * Initialize common header structure
+     */
+    let headerContent = `
+        <header class="header">
+
+            <div class="logo-section">
+                <img src="../assets/images/logo/logo.png"
+                     alt="Hospital CRM Logo"
+                     class="logo-img">
+
+                <span class="logo-title">
+                    Hospital CMS
+                </span>
+            </div>
+
+            <nav>
+    `;
+
+
+    /*
+     * Validate session
+     */
+    if (
+        (role === "loggedPatient" ||
+         role === "admin" ||
+         role === "doctor")
+        && !token
+    ) {
+
+        localStorage.removeItem("userRole");
+
+        alert("Session expired or invalid login. Please log in again.");
+
+        window.location.href = "/";
+
+        return;
+    }
+
+
+    /*
+     * Role-specific content
+     */
+
+    // Admin
+    if (role === "admin") {
+
+        headerContent += `
+            <button id="addDocBtn"
+                    class="adminBtn"
+                    onclick="openModal('addDoctor')">
+                Add Doctor
+            </button>
+
+            <a href="#" onclick="logout()">
+                Logout
+            </a>
+        `;
+    }
+
+
+    // Doctor
+    else if (role === "doctor") {
+
+        headerContent += `
+            <button class="adminBtn"
+                    onclick="selectRole('doctor')">
+                Home
+            </button>
+
+            <a href="#" onclick="logout()">
+                Logout
+            </a>
+        `;
+    }
+
+
+    // Patient (not logged in)
+    else if (role === "patient") {
+
+        headerContent += `
+            <button id="patientLogin"
+                    class="adminBtn">
+                Login
+            </button>
+
+            <button id="patientSignup"
+                    class="adminBtn">
+                Sign Up
+            </button>
+        `;
+    }
+
+
+    // Logged patient
+    else if (role === "loggedPatient") {
+
+        headerContent += `
+            <button id="home"
+                    class="adminBtn"
+                    onclick="window.location.href='/pages/loggedPatientDashboard.html'">
+                Home
+            </button>
+
+            <button id="patientAppointments"
+                    class="adminBtn"
+                    onclick="window.location.href='/pages/patientAppointments.html'">
+                Appointments
+            </button>
+
+            <a href="#" onclick="logoutPatient()">
+                Logout
+            </a>
+        `;
+    }
+
+
+    // Close navigation and header
+    headerContent += `
+            </nav>
+
+        </header>
+    `;
+
+
+    // Render header
+    headerDiv.innerHTML = headerContent;
+
+
+    // Attach button events
+    attachHeaderButtonListeners();
+}
+
+
+/*
+ * Attach listeners to dynamically generated buttons
+ */
+function attachHeaderButtonListeners() {
+
+    const patientLogin = document.getElementById("patientLogin");
+
+    if (patientLogin) {
+
+        patientLogin.addEventListener(
+            "click",
+            () => openModal("patientLogin")
+        );
+    }
+
+
+    const patientSignup = document.getElementById("patientSignup");
+
+    if (patientSignup) {
+
+        patientSignup.addEventListener(
+            "click",
+            () => openModal("patientSignup")
+        );
+    }
+}
+
+
+/*
+ * Logout for Admin and Doctor users
+ */
+function logout() {
+
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("token");
+
+    window.location.href = "/";
+}
+
+
+/*
+ * Logout for Patients
+ */
+function logoutPatient() {
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+
+    window.location.href = "/pages/loggedPatientDashboard.html";
+}
+
+
+/*
+ * Initialize header when page loads
+ */
+renderHeader();
+/*
   Step-by-Step Explanation of Header Section Rendering
 
   This code dynamically renders the header section of the page based on the user's role, session status, and available actions (such as login, logout, or role-switching).

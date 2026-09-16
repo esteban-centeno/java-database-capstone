@@ -1,4 +1,71 @@
 <!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <title>Select Role</title>
+
+    <link rel="icon" type="image/png" href="../assets/images/logo/Logo.png">
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/index.css">
+
+    <script src="../js/util.js" defer></script>
+    <script src="../js/render.js" defer></script>
+    <script src="../js/components/header.js" defer></script>
+    <script src="../js/components/footer.js" defer></script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="wrapper">
+
+            <!-- Header -->
+            <div id="header"></div>
+
+            <!-- Main Content -->
+            <main class="main-content">
+
+                <h2>Select Your Role</h2>
+
+                <button id="adminBtn">Admin</button>
+
+                <button id="patientBtn">Patient</button>
+
+                <button id="doctorBtn">Doctor</button>
+
+            </main>
+
+            <!-- Footer -->
+            <div id="footer"></div>
+
+        </div>
+
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+
+        <div class="modal-content">
+
+            <span class="close">&times;</span>
+
+            <div id="modal-body"></div>
+
+        </div>
+
+    </div>
+
+    <!-- Page Logic -->
+    <script type="module" src="../js/index.js" defer></script>
+
+</body>
+
+</html>
 <!-- 
 
 Step-by-Step Explanation of `index.html`.
