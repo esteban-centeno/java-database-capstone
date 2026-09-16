@@ -1,4 +1,172 @@
 /*
+ * auth.js
+ *
+ * Handles Admin and Doctor authentication.
+ */
+
+import { openModal } from "../components/modals.js";
+import { BASE_API_URL } from "../config/config.js";
+
+
+/*
+ * API Endpoints
+ */
+const ADMIN_API = `${BASE_API_URL}/admin/login`;
+const DOCTOR_API = `${BASE_API_URL}/doctor/login`;
+
+
+/*
+ * Wait until the DOM is fully loaded
+ */
+window.addEventListener("load", () => {
+
+    const adminLoginButton = document.getElementById("adminLogin");
+    const doctorLoginButton = document.getElementById("doctorLogin");
+
+
+    if (adminLoginButton) {
+
+        adminLoginButton.addEventListener("click", () => {
+            openModal("adminLogin");
+        });
+
+    }
+
+
+    if (doctorLoginButton) {
+
+        doctorLoginButton.addEventListener("click", () => {
+            openModal("doctorLogin");
+        });
+
+    }
+
+});
+
+
+/*
+ * Handles Admin login
+ */
+window.adminLoginHandler = async function () {
+
+    try {
+
+        // Step 1: Read credentials
+        const username = document.getElementById("adminUsername").value;
+        const password = document.getElementById("adminPassword").value;
+
+
+        // Step 2: Create request payload
+        const admin = {
+            username,
+            password
+        };
+
+
+        // Step 3: Send login request
+        const response = await fetch(ADMIN_API, {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(admin)
+
+        });
+
+
+        // Step 4: Successful login
+        if (response.ok) {
+
+            const data = await response.json();
+
+            localStorage.setItem("token", data.token);
+
+            selectRole("admin");
+
+            return;
+        }
+
+
+        // Step 5: Invalid credentials
+        alert("Invalid username or password.");
+
+    }
+    catch (error) {
+
+        // Step 6: Network/server errors
+        console.error(error);
+
+        alert("An unexpected error occurred. Please try again.");
+
+    }
+
+};
+
+
+/*
+ * Handles Doctor login
+ */
+window.doctorLoginHandler = async function () {
+
+    try {
+
+        // Step 1: Read credentials
+        const email = document.getElementById("doctorEmail").value;
+        const password = document.getElementById("doctorPassword").value;
+
+
+        // Step 2: Create request payload
+        const doctor = {
+            email,
+            password
+        };
+
+
+        // Step 3: Send login request
+        const response = await fetch(DOCTOR_API, {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(doctor)
+
+        });
+
+
+        // Step 4: Successful login
+        if (response.ok) {
+
+            const data = await response.json();
+
+            localStorage.setItem("token", data.token);
+
+            selectRole("doctor");
+
+            return;
+        }
+
+
+        // Step 5: Invalid credentials
+        alert("Invalid email or password.");
+
+    }
+    catch (error) {
+
+        // Step 6: Handle errors
+        console.error(error);
+
+        alert("An unexpected error occurred. Please try again.");
+
+    }
+
+};
+/*
   Import the openModal function to handle showing login popups/modals
   Import the base API URL from the config file
   Define constants for the admin and doctor login API endpoints using the base URL

@@ -1,4 +1,170 @@
 /*
+ * doctorDashboard.js
+ *
+ * Handles the Doctor Dashboard functionality:
+ * - Loads appointments
+ * - Filters appointments by patient name
+ * - Filters appointments by date
+ */
+
+import { getAllAppointments } from "./services/appointmentRecordService.js";
+import { createPatientRow } from "./components/patientRows.js";
+
+
+/*
+ * DOM Elements
+ */
+const patientTableBody = document.getElementById("patientTableBody");
+const searchBar = document.getElementById("searchBar");
+const todayButton = document.getElementById("todayButton");
+const datePicker = document.getElementById("datePicker");
+
+
+/*
+ * State
+ */
+let selectedDate = new Date().toISOString().split("T")[0];
+let patientName = null;
+
+const token = localStorage.getItem("token");
+
+
+/*
+ * Search appointments by patient name
+ */
+if (searchBar) {
+
+    searchBar.addEventListener("input", () => {
+
+        const value = searchBar.value.trim();
+
+        patientName = value !== "" ? value : "null";
+
+        loadAppointments();
+
+    });
+
+}
+
+
+/*
+ * Display today's appointments
+ */
+if (todayButton) {
+
+    todayButton.addEventListener("click", () => {
+
+        selectedDate = new Date().toISOString().split("T")[0];
+
+        if (datePicker) {
+            datePicker.value = selectedDate;
+        }
+
+        loadAppointments();
+
+    });
+
+}
+
+
+/*
+ * Display appointments for selected date
+ */
+if (datePicker) {
+
+    datePicker.value = selectedDate;
+
+    datePicker.addEventListener("change", () => {
+
+        selectedDate = datePicker.value;
+
+        loadAppointments();
+
+    });
+
+}
+
+
+/*
+ * Function: loadAppointments
+ *
+ * Fetches and displays appointments for the selected date.
+ */
+async function loadAppointments() {
+
+    try {
+
+        const appointments = await getAllAppointments(
+            selectedDate,
+            patientName,
+            token
+        );
+
+
+        patientTableBody.innerHTML = "";
+
+
+        if (!appointments || appointments.length === 0) {
+
+            patientTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        No Appointments found for today.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        appointments.forEach(appointment => {
+
+            const patient = {
+                id: appointment.patient.id,
+                name: appointment.patient.name,
+                phone: appointment.patient.phone,
+                email: appointment.patient.email
+            };
+
+
+            const row = createPatientRow(
+                patient,
+                appointment
+            );
+
+            patientTableBody.appendChild(row);
+
+        });
+
+    } catch (error) {
+
+        console.error("Error loading appointments:", error);
+
+        patientTableBody.innerHTML = `
+            <tr>
+                <td colspan="5">
+                    Error loading appointments. Try again later.
+                </td>
+            </tr>
+        `;
+
+    }
+
+}
+
+
+/*
+ * Initialize dashboard
+ */
+document.addEventListener("DOMContentLoaded", () => {
+
+    renderContent();
+
+    loadAppointments();
+
+});
+/*
   Import getAllAppointments to fetch appointments from the backend
   Import createPatientRow to generate a table row for each patient appointment
 

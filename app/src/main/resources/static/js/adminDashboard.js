@@ -1,4 +1,221 @@
 /*
+ * adminDashboard.js
+ *
+ * Handles the admin dashboard functionality:
+ * - Loads doctor cards
+ * - Filters doctors
+ * - Adds new doctors
+ */
+
+import { openModal, closeModal } from "./components/modals.js";
+import {
+    getDoctors,
+    filterDoctors,
+    saveDoctor
+} from "./services/doctorServices.js";
+import { createDoctorCard } from "./components/doctorCard.js";
+
+
+/*
+ * Open Add Doctor modal
+ */
+const addDoctorButton = document.getElementById("addDocBtn");
+
+if (addDoctorButton) {
+
+    addDoctorButton.addEventListener("click", () => {
+        openModal("addDoctor");
+    });
+
+}
+
+
+/*
+ * Load doctors once the page is ready
+ */
+document.addEventListener("DOMContentLoaded", () => {
+
+    loadDoctorCards();
+
+});
+
+
+/*
+ * Function: loadDoctorCards
+ *
+ * Fetches and renders all doctors.
+ */
+export async function loadDoctorCards() {
+
+    try {
+
+        const doctors = await getDoctors();
+
+        renderDoctorCards(doctors);
+
+    } catch (error) {
+
+        console.error("Error loading doctors:", error);
+
+    }
+
+}
+
+
+/*
+ * Filter event listeners
+ */
+const searchBar = document.getElementById("searchBar");
+const timeFilter = document.getElementById("timeFilter");
+const specialtyFilter = document.getElementById("specialtyFilter");
+
+if (searchBar) {
+    searchBar.addEventListener("input", filterDoctorsOnChange);
+}
+
+if (timeFilter) {
+    timeFilter.addEventListener("change", filterDoctorsOnChange);
+}
+
+if (specialtyFilter) {
+    specialtyFilter.addEventListener("change", filterDoctorsOnChange);
+}
+
+
+/*
+ * Function: filterDoctorsOnChange
+ *
+ * Filters doctors using the current search criteria.
+ */
+async function filterDoctorsOnChange() {
+
+    try {
+
+        const name =
+            searchBar && searchBar.value.trim() !== ""
+                ? searchBar.value.trim()
+                : null;
+
+        const time =
+            timeFilter && timeFilter.value !== ""
+                ? timeFilter.value
+                : null;
+
+        const specialty =
+            specialtyFilter && specialtyFilter.value !== ""
+                ? specialtyFilter.value
+                : null;
+
+
+        const result = await filterDoctors(
+            name,
+            time,
+            specialty
+        );
+
+        if (result.doctors.length > 0) {
+
+            renderDoctorCards(result.doctors);
+
+        } else {
+
+            const content =
+                document.getElementById("content");
+
+            content.innerHTML =
+                "<p>No doctors found with the given filters.</p>";
+
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert("Unable to filter doctors.");
+
+    }
+
+}
+
+
+/*
+ * Function: renderDoctorCards
+ *
+ * Renders a list of doctor cards.
+ */
+function renderDoctorCards(doctors) {
+
+    const content = document.getElementById("content");
+
+    content.innerHTML = "";
+
+    doctors.forEach(doctor => {
+
+        const card = createDoctorCard(doctor);
+
+        content.appendChild(card);
+
+    });
+
+}
+
+
+/*
+ * Function: adminAddDoctor
+ *
+ * Saves a new doctor.
+ */
+window.adminAddDoctor = async function () {
+
+    const doctor = {
+
+        name: document.getElementById("doctorName").value,
+        email: document.getElementById("doctorEmail").value,
+        phone: document.getElementById("doctorPhone").value,
+        password: document.getElementById("doctorPassword").value,
+        specialization: document.getElementById("doctorSpecialty").value,
+        availableTimes:
+            document.getElementById("doctorAvailableTimes")
+                .value
+                .split(",")
+                .map(time => time.trim())
+
+    };
+
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+
+        alert("Authentication required.");
+
+        return;
+
+    }
+
+
+    const result = await saveDoctor(
+        doctor,
+        token
+    );
+
+
+    if (result.success) {
+
+        alert(result.message);
+
+        closeModal();
+
+        window.location.reload();
+
+    } else {
+
+        alert(result.message);
+
+    }
+
+};
+/*
   This script handles the admin dashboard functionality for managing doctors:
   - Loads all doctor cards
   - Filters doctors by name, time, or specialty
