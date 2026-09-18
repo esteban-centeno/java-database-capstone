@@ -1,6 +1,73 @@
 package com.project.back_end.controllers;
 
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Patient;
+import com.project.back_end.services.PatientService;
+import com.project.back_end.services.Service;
+import jakarta.validation.Valid;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/patient")
 public class PatientController {
+    private final PatientService patientService;
+    private final Service service;
+
+    public PatientController(PatientService patientService, Service service) {
+        this.patientService = patientService;
+        this.service = service;
+    }
+
+    @GetMapping("/{token}")
+    public ResponseEntity<Map<String, Object>> getPatient(@PathVariable String token) {
+        if (!isAuthorized(token, "patient")) return unauthorized();
+        return patientService.getPatientDetails(token);
+    }
+
+    @PostMapping
+    public ResponseEntity<Map<String, String>> createPatient(@Valid @RequestBody Patient patient) {
+        if (!service.validatePatient(patient)) return message(HttpStatus.CONFLICT, "A patient with this email or phone already exists");
+        return patientService.createPatient(patient) == 1
+                ? message(HttpStatus.CREATED, "Patient created")
+                : message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to create patient");
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody Login login) {
+        return service.validatePatientLogin(login);
+    }
+
+    @GetMapping("/{patientId}/{user}/{token}")
+    public ResponseEntity<Map<String, Object>> getPatientAppointment(@PathVariable Long patientId,
+                                                                       @PathVariable String user,
+                                                                       @PathVariable String token) {
+        if (!isAuthorized(token, user)) return unauthorized();
+        return patientService.getPatientAppointment(patientId);
+    }
+
+    @GetMapping("/filter/{condition}/{name}/{token}")
+    public ResponseEntity<Map<String, Object>> filterPatientAppointment(@PathVariable String condition,
+                                                                          @PathVariable String name,
+                                                                          @PathVariable String token) {
+        if (!isAuthorized(token, "patient")) return unauthorized();
+        return service.filterPatient(token, condition, name);
+    }
+
+    private boolean isAuthorized(String token, String role) { return service.validateToken(token, role).getStatusCode().is2xxSuccessful(); }
+    private ResponseEntity<Map<String, Object>> unauthorized() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid or expired token"));
+    }
+    private ResponseEntity<Map<String, String>> message(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
+    }
 
 // 1. Set Up the Controller Class:
 //    - Annotate the class with `@RestController` to define it as a REST API controller for patient-related operations.
@@ -48,5 +115,3 @@ public class PatientController {
 
 
 }
-
-

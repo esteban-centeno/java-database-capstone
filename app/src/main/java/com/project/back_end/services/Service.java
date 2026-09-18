@@ -1,6 +1,5 @@
 package com.project.back_end.services;
 
-import com.project.back_end.DTO.AppointmentDTO;
 import com.project.back_end.DTO.Login;
 import com.project.back_end.models.Admin;
 import com.project.back_end.models.Appointment;
@@ -12,7 +11,6 @@ import com.project.back_end.repo.PatientRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.http.HttpStatus;
@@ -37,24 +35,24 @@ public class Service {
         this.patientService = patientService;
     }
 
-    public ResponseEntity<?> validateToken(String token, String role) {
-        if (tokenService.validateToken(token, role)) return ResponseEntity.ok().build();
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid or expired token"));
+    public ResponseEntity<Map<String, String>> validateToken(String token, String role) {
+        if (tokenService.validateToken(token, role)) return ResponseEntity.ok(Map.of());
+        return stringResponse(HttpStatus.UNAUTHORIZED, "error", "Invalid or expired token");
     }
 
-    public ResponseEntity<?> validateAdmin(Admin admin) {
+    public ResponseEntity<Map<String, String>> validateAdmin(Admin admin) {
         try {
             Admin persisted = adminRepository.findByUsername(admin.getUsername());
             if (persisted == null || !Objects.equals(persisted.getPassword(), admin.getPassword())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid username or password"));
+                return stringResponse(HttpStatus.UNAUTHORIZED, "error", "Invalid username or password");
             }
-            return ResponseEntity.ok(Map.of("token", tokenService.generateToken(persisted.getUsername())));
+            return stringResponse(HttpStatus.OK, "token", tokenService.generateToken(persisted.getUsername()));
         } catch (RuntimeException exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unable to authenticate admin"));
+            return stringResponse(HttpStatus.INTERNAL_SERVER_ERROR, "error", "Unable to authenticate admin");
         }
     }
 
-    public List<Doctor> filterDoctor(String name, String specialty, String time) {
+    public Map<String, Object> filterDoctor(String name, String specialty, String time) {
         boolean hasName = hasText(name), hasSpecialty = hasText(specialty), hasTime = hasText(time);
         if (hasName && hasSpecialty && hasTime) return doctorService.filterDoctorsByNameSpecilityandTime(name, specialty, time);
         if (hasName && hasSpecialty) return doctorService.filterDoctorByNameAndSpecility(name, specialty);
@@ -63,7 +61,7 @@ public class Service {
         if (hasName) return doctorService.findDoctorByName(name);
         if (hasSpecialty) return doctorService.filterDoctorBySpecility(specialty);
         if (hasTime) return doctorService.filterDoctorsByTime(time);
-        return doctorService.getDoctors();
+        return Map.of("doctors", doctorService.getDoctors());
     }
 
     public int validateAppointment(Long doctorId, LocalDate date, LocalTime appointmentTime) {
@@ -86,37 +84,44 @@ public class Service {
         return patient != null && patientRepository.findByEmailOrPhone(patient.getEmail(), patient.getPhone()) == null;
     }
 
-    public ResponseEntity<?> validatePatientLogin(Patient patient) {
+    public ResponseEntity<Map<String, String>> validatePatientLogin(Patient patient) {
         try {
             Patient persisted = patientRepository.findByEmail(patient.getEmail());
             if (persisted == null || !Objects.equals(persisted.getPassword(), patient.getPassword())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
+                return stringResponse(HttpStatus.UNAUTHORIZED, "error", "Invalid email or password");
             }
-            return ResponseEntity.ok(Map.of("token", tokenService.generateToken(persisted.getEmail())));
+            return stringResponse(HttpStatus.OK, "token", tokenService.generateToken(persisted.getEmail()));
         } catch (RuntimeException exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unable to authenticate patient"));
+            return stringResponse(HttpStatus.INTERNAL_SERVER_ERROR, "error", "Unable to authenticate patient");
         }
     }
 
-    public ResponseEntity<?> validatePatientLogin(Login login) {
+    public ResponseEntity<Map<String, String>> validatePatientLogin(Login login) {
         Patient patient = new Patient();
         patient.setEmail(login.getEmail());
         patient.setPassword(login.getPassword());
         return validatePatientLogin(patient);
     }
 
-    public ResponseEntity<?> filterPatient(String token, String condition, String doctorName) {
+    public ResponseEntity<Map<String, Object>> filterPatient(String token, String condition, String doctorName) {
         try {
             Patient patient = patientRepository.findByEmail(tokenService.extractEmail(token));
-            if (patient == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Patient not found"));
+            if (patient == null) return objectResponse(HttpStatus.NOT_FOUND, "error", "Patient not found");
             if (hasText(condition) && hasText(doctorName)) return patientService.filterByDoctorAndCondition(doctorName, condition, patient.getId());
             if (hasText(condition)) return patientService.filterByCondition(condition, patient.getId());
-            if (hasText(doctorName)) return ResponseEntity.ok(patientService.filterByDoctor(doctorName, patient.getId()));
-            List<AppointmentDTO> appointments = patientService.getPatientAppointment(patient.getId());
-            return ResponseEntity.ok(appointments);
+            if (hasText(doctorName)) return patientService.filterByDoctor(doctorName, patient.getId());
+            return patientService.getPatientAppointment(patient.getId());
         } catch (RuntimeException exception) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
+            return objectResponse(HttpStatus.UNAUTHORIZED, "error", "Invalid token");
         }
+    }
+
+    private ResponseEntity<Map<String, String>> stringResponse(HttpStatus status, String key, String value) {
+        return ResponseEntity.status(status).body(Map.of(key, value));
+    }
+
+    private ResponseEntity<Map<String, Object>> objectResponse(HttpStatus status, String key, Object value) {
+        return ResponseEntity.status(status).body(Map.of(key, value));
     }
 
     private boolean hasText(String value) { return value != null && !value.isBlank(); }

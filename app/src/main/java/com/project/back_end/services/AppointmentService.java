@@ -1,6 +1,120 @@
 package com.project.back_end.services;
 
+import com.project.back_end.models.Appointment;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.models.Patient;
+import com.project.back_end.repo.AppointmentRepository;
+import com.project.back_end.repo.DoctorRepository;
+import com.project.back_end.repo.PatientRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
 public class AppointmentService {
+    private final AppointmentRepository appointmentRepository;
+    private final com.project.back_end.services.Service sharedService;
+    private final TokenService tokenService;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
+
+    public AppointmentService(AppointmentRepository appointmentRepository,
+                              com.project.back_end.services.Service sharedService,
+                              TokenService tokenService, PatientRepository patientRepository,
+                              DoctorRepository doctorRepository) {
+        this.appointmentRepository = appointmentRepository;
+        this.sharedService = sharedService;
+        this.tokenService = tokenService;
+        this.patientRepository = patientRepository;
+        this.doctorRepository = doctorRepository;
+    }
+
+    @Transactional
+    public int bookAppointment(Appointment appointment) {
+        try {
+            if (!prepareReferences(appointment) || sharedService.validateAppointment(appointment) != 1) return 0;
+            appointment.setStatus(0);
+            appointmentRepository.save(appointment);
+            return 1;
+        } catch (RuntimeException exception) { return 0; }
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, String>> updateAppointment(Appointment appointment, String token) {
+        try {
+            Patient requester = patientRepository.findByEmail(tokenService.extractEmail(token));
+            Appointment existing = appointment.getId() == null ? null : appointmentRepository.findById(appointment.getId()).orElse(null);
+            if (requester == null || existing == null) return message(HttpStatus.NOT_FOUND, "Appointment not found");
+            if (!existing.getPatient().getId().equals(requester.getId())) return message(HttpStatus.FORBIDDEN, "You cannot update another patient's appointment");
+            if (!prepareReferences(appointment)) return message(HttpStatus.BAD_REQUEST, "Doctor or patient not found");
+            if (!appointment.getPatient().getId().equals(requester.getId())) return message(HttpStatus.BAD_REQUEST, "Patient cannot be changed");
+            boolean unchangedSlot = existing.getDoctor().getId().equals(appointment.getDoctor().getId())
+                    && existing.getAppointmentTime().equals(appointment.getAppointmentTime());
+            if (!unchangedSlot && sharedService.validateAppointment(appointment) != 1) {
+                return message(HttpStatus.CONFLICT, "Requested appointment time is unavailable");
+            }
+            appointment.setStatus(existing.getStatus());
+            appointmentRepository.save(appointment);
+            return message(HttpStatus.OK, "Appointment updated");
+        } catch (RuntimeException exception) { return message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to update appointment"); }
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, String>> cancelAppointment(Long appointmentId, String token) {
+        try {
+            Patient requester = patientRepository.findByEmail(tokenService.extractEmail(token));
+            Appointment appointment = appointmentRepository.findById(appointmentId).orElse(null);
+            if (requester == null || appointment == null) return message(HttpStatus.NOT_FOUND, "Appointment not found");
+            if (!appointment.getPatient().getId().equals(requester.getId())) {
+                return message(HttpStatus.FORBIDDEN, "You cannot cancel another patient's appointment");
+            }
+            appointmentRepository.delete(appointment);
+            return message(HttpStatus.OK, "Appointment cancelled");
+        } catch (RuntimeException exception) { return message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to cancel appointment"); }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAppointments(Long doctorId, LocalDate date, String patientName) {
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        List<Appointment> appointments = patientName == null || patientName.isBlank()
+                ? appointmentRepository.findByDoctorIdAndAppointmentTimeBetween(doctorId, start, end)
+                : appointmentRepository.findByDoctorIdAndPatient_NameContainingIgnoreCaseAndAppointmentTimeBetween(
+                        doctorId, patientName, start, end);
+        return Map.of("appointments", appointments);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAppointments(LocalDate date, String patientName, String token) {
+        Doctor doctor = doctorRepository.findByEmail(tokenService.extractEmail(token));
+        return doctor == null ? Map.of("appointments", List.of()) : getAppointments(doctor.getId(), date, patientName);
+    }
+
+    @Transactional
+    public void changeStatus(int status, long appointmentId) {
+        appointmentRepository.updateStatus(status, appointmentId);
+    }
+
+    private boolean prepareReferences(Appointment appointment) {
+        if (appointment == null || appointment.getDoctor() == null || appointment.getPatient() == null
+                || appointment.getDoctor().getId() == null || appointment.getPatient().getId() == null
+                || appointment.getAppointmentTime() == null) return false;
+        Doctor doctor = doctorRepository.findById(appointment.getDoctor().getId()).orElse(null);
+        Patient patient = patientRepository.findById(appointment.getPatient().getId()).orElse(null);
+        if (doctor == null || patient == null) return false;
+        appointment.setDoctor(doctor);
+        appointment.setPatient(patient);
+        return true;
+    }
+
+    private ResponseEntity<Map<String, String>> message(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
+    }
 // 1. **Add @Service Annotation**:
 //    - To indicate that this class is a service layer class for handling business logic.
 //    - The `@Service` annotation should be added before the class declaration to mark it as a Spring service component.

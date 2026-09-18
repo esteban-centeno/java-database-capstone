@@ -31,36 +31,54 @@ public class PatientService {
     }
 
     @Transactional(readOnly = true)
-    public List<AppointmentDTO> getPatientAppointment(Long patientId) {
-        return toDtos(appointmentRepository.findByPatientId(patientId));
+    public ResponseEntity<Map<String, Object>> getPatientAppointment(Long patientId) {
+        try {
+            return appointmentsResponse(toDtos(appointmentRepository.findByPatientId(patientId)));
+        } catch (RuntimeException exception) {
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to retrieve appointments");
+        }
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<?> filterByCondition(String condition, Long patientId) {
+    public ResponseEntity<Map<String, Object>> filterByCondition(String condition, Long patientId) {
         Integer status = statusFor(condition);
-        if (status == null) return ResponseEntity.badRequest().body(Map.of("error", "Condition must be 'past' or 'future'"));
-        return ResponseEntity.ok(toDtos(appointmentRepository.findByPatient_IdAndStatusOrderByAppointmentTimeAsc(patientId, status)));
+        if (status == null) return error(HttpStatus.BAD_REQUEST, "Condition must be 'past' or 'future'");
+        try {
+            return appointmentsResponse(toDtos(
+                    appointmentRepository.findByPatient_IdAndStatusOrderByAppointmentTimeAsc(patientId, status)));
+        } catch (RuntimeException exception) {
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to filter appointments");
+        }
     }
 
     @Transactional(readOnly = true)
-    public List<AppointmentDTO> filterByDoctor(String doctorName, Long patientId) {
-        return toDtos(appointmentRepository.filterByDoctorNameAndPatientId(doctorName, patientId));
+    public ResponseEntity<Map<String, Object>> filterByDoctor(String doctorName, Long patientId) {
+        try {
+            return appointmentsResponse(toDtos(appointmentRepository.filterByDoctorNameAndPatientId(doctorName, patientId)));
+        } catch (RuntimeException exception) {
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to filter appointments");
+        }
     }
 
     @Transactional(readOnly = true)
-    public ResponseEntity<?> filterByDoctorAndCondition(String doctorName, String condition, Long patientId) {
+    public ResponseEntity<Map<String, Object>> filterByDoctorAndCondition(String doctorName, String condition, Long patientId) {
         Integer status = statusFor(condition);
-        if (status == null) return ResponseEntity.badRequest().body(Map.of("error", "Condition must be 'past' or 'future'"));
-        return ResponseEntity.ok(toDtos(appointmentRepository.filterByDoctorNameAndPatientIdAndStatus(doctorName, patientId, status)));
+        if (status == null) return error(HttpStatus.BAD_REQUEST, "Condition must be 'past' or 'future'");
+        try {
+            return appointmentsResponse(toDtos(
+                    appointmentRepository.filterByDoctorNameAndPatientIdAndStatus(doctorName, patientId, status)));
+        } catch (RuntimeException exception) {
+            return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to filter appointments");
+        }
     }
 
-    public ResponseEntity<?> getPatientDetails(String token) {
+    public ResponseEntity<Map<String, Object>> getPatientDetails(String token) {
         try {
             Patient patient = patientRepository.findByEmail(tokenService.extractEmail(token));
-            return patient == null ? ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Patient not found"))
-                    : ResponseEntity.ok(patient);
+            return patient == null ? error(HttpStatus.NOT_FOUND, "Patient not found")
+                    : ResponseEntity.ok(Map.of("patient", patient));
         } catch (RuntimeException exception) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
+            return error(HttpStatus.UNAUTHORIZED, "Invalid token");
         }
     }
 
@@ -76,6 +94,14 @@ public class PatientService {
                 appointment.getPatient().getId(), appointment.getPatient().getName(),
                 appointment.getPatient().getEmail(), appointment.getPatient().getPhone(),
                 appointment.getPatient().getAddress(), appointment.getAppointmentTime(), appointment.getStatus())).toList();
+    }
+
+    private ResponseEntity<Map<String, Object>> appointmentsResponse(List<AppointmentDTO> appointments) {
+        return ResponseEntity.ok(Map.of("appointments", appointments));
+    }
+
+    private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("error", message));
     }
 // 1. **Add @Service Annotation**:
 //    - The `@Service` annotation is used to mark this class as a Spring service component. 

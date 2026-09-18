@@ -87,39 +87,53 @@ public class DoctorService {
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> findDoctorByName(String name) { return doctorRepository.findByNameContainingIgnoreCase(name); }
-
-    @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorsByNameSpecilityandTime(String name, String specialty, String time) {
-        return filterDoctorByTime(doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty), time);
+    public Map<String, Object> findDoctorByName(String name) {
+        return doctorsResponse(findDoctorsByName(name));
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorByTime(List<Doctor> doctors, String time) {
+    public Map<String, Object> filterDoctorsByNameSpecilityandTime(String name, String specialty, String time) {
+        return doctorsResponse(filterDoctorByTime(
+                doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty), time));
+    }
+
+    private List<Doctor> filterDoctorByTime(List<Doctor> doctors, String time) {
         return doctors.stream().filter(doctor -> doctor.getAvailableTimes() != null
                 && doctor.getAvailableTimes().stream().anyMatch(slot -> matchesPeriod(slot, time))).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorByNameAndTime(String name, String time) {
-        return filterDoctorByTime(findDoctorByName(name), time);
+    public Map<String, Object> filterDoctorByNameAndTime(String name, String time) {
+        return doctorsResponse(filterDoctorByTime(findDoctorsByName(name), time));
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorByNameAndSpecility(String name, String specialty) {
-        return doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty);
+    public Map<String, Object> filterDoctorByNameAndSpecility(String name, String specialty) {
+        return doctorsResponse(doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty));
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorByTimeAndSpecility(String time, String specialty) {
-        return filterDoctorByTime(doctorRepository.findBySpecialtyIgnoreCase(specialty), time);
+    public Map<String, Object> filterDoctorByTimeAndSpecility(String time, String specialty) {
+        return doctorsResponse(filterDoctorByTime(doctorRepository.findBySpecialtyIgnoreCase(specialty), time));
     }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorBySpecility(String specialty) { return doctorRepository.findBySpecialtyIgnoreCase(specialty); }
+    public Map<String, Object> filterDoctorBySpecility(String specialty) {
+        return doctorsResponse(doctorRepository.findBySpecialtyIgnoreCase(specialty));
+    }
 
     @Transactional(readOnly = true)
-    public List<Doctor> filterDoctorsByTime(String time) { return filterDoctorByTime(doctorRepository.findAll(), time); }
+    public Map<String, Object> filterDoctorsByTime(String time) {
+        return doctorsResponse(filterDoctorByTime(doctorRepository.findAll(), time));
+    }
+
+    private List<Doctor> findDoctorsByName(String name) {
+        return doctorRepository.findByNameContainingIgnoreCase(name);
+    }
+
+    private Map<String, Object> doctorsResponse(List<Doctor> doctors) {
+        return Map.of("doctors", doctors);
+    }
 
     private boolean slotStartsAt(String slot, LocalTime time) {
         try { return LocalTime.parse(slot.split("-")[0].trim()).equals(time); }

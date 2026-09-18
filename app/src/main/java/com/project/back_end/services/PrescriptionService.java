@@ -1,6 +1,50 @@
 package com.project.back_end.services;
 
+import com.project.back_end.models.Prescription;
+import com.project.back_end.repo.PrescriptionRepository;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+@Service
 public class PrescriptionService {
+    private final PrescriptionRepository prescriptionRepository;
+
+    public PrescriptionService(PrescriptionRepository prescriptionRepository) {
+        this.prescriptionRepository = prescriptionRepository;
+    }
+
+    public ResponseEntity<Map<String, String>> savePrescription(Prescription prescription) {
+        try {
+            if (!prescriptionRepository.findByAppointmentId(prescription.getAppointmentId()).isEmpty()) {
+                return saveMessage(HttpStatus.BAD_REQUEST, "A prescription already exists for this appointment");
+            }
+            prescriptionRepository.save(prescription);
+            return saveMessage(HttpStatus.CREATED, "Prescription created");
+        } catch (RuntimeException exception) {
+            return saveMessage(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to save prescription");
+        }
+    }
+
+    public ResponseEntity<Map<String, Object>> getPrescription(Long appointmentId) {
+        try {
+            List<Prescription> prescriptions = prescriptionRepository.findByAppointmentId(appointmentId);
+            if (prescriptions.isEmpty()) return prescriptionError(HttpStatus.NOT_FOUND, "Prescription not found");
+            return ResponseEntity.ok(Map.of("prescription", prescriptions.get(0)));
+        } catch (RuntimeException exception) {
+            return prescriptionError(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to retrieve prescription");
+        }
+    }
+
+    private ResponseEntity<Map<String, String>> saveMessage(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
+    }
+
+    private ResponseEntity<Map<String, Object>> prescriptionError(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("error", message));
+    }
     
  // 1. **Add @Service Annotation**:
 //    - The `@Service` annotation marks this class as a Spring service component, allowing Spring's container to manage it.

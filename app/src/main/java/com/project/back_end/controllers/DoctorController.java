@@ -1,7 +1,89 @@
 package com.project.back_end.controllers;
 
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.services.DoctorService;
+import com.project.back_end.services.Service;
+import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+@RestController
+@RequestMapping("${api.path}doctor")
 public class DoctorController {
+    private final DoctorService doctorService;
+    private final Service service;
+
+    public DoctorController(DoctorService doctorService, Service service) {
+        this.doctorService = doctorService;
+        this.service = service;
+    }
+
+    @GetMapping("/availability/{user}/{doctorId}/{date}/{token}")
+    public ResponseEntity<?> getDoctorAvailability(@PathVariable String user, @PathVariable Long doctorId,
+                                                    @PathVariable LocalDate date, @PathVariable String token) {
+        if (!isAuthorized(token, user)) return unauthorized();
+        return ResponseEntity.ok(Map.of("availableTimes", doctorService.getDoctorAvailability(doctorId, date)));
+    }
+
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> getDoctor() {
+        return ResponseEntity.ok(Map.of("doctors", doctorService.getDoctors()));
+    }
+
+    @PostMapping("/{token}")
+    public ResponseEntity<Map<String, String>> saveDoctor(@Valid @RequestBody Doctor doctor, @PathVariable String token) {
+        if (!isAuthorized(token, "admin")) return unauthorized();
+        int result = doctorService.saveDoctor(doctor);
+        if (result == 1) return message(HttpStatus.CREATED, "Doctor created");
+        if (result == -1) return message(HttpStatus.CONFLICT, "A doctor with this email already exists");
+        return message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to create doctor");
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, String>> doctorLogin(@RequestBody Login login) {
+        return doctorService.validateDoctor(login);
+    }
+
+    @PutMapping("/{token}")
+    public ResponseEntity<Map<String, String>> updateDoctor(@Valid @RequestBody Doctor doctor, @PathVariable String token) {
+        if (!isAuthorized(token, "admin")) return unauthorized();
+        int result = doctorService.updateDoctor(doctor);
+        if (result == 1) return message(HttpStatus.OK, "Doctor updated");
+        if (result == -1) return message(HttpStatus.NOT_FOUND, "Doctor not found");
+        return message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to update doctor");
+    }
+
+    @DeleteMapping("/{doctorId}/{token}")
+    public ResponseEntity<Map<String, String>> deleteDoctor(@PathVariable Long doctorId, @PathVariable String token) {
+        if (!isAuthorized(token, "admin")) return unauthorized();
+        int result = doctorService.deleteDoctor(doctorId);
+        if (result == 1) return message(HttpStatus.OK, "Doctor deleted");
+        if (result == -1) return message(HttpStatus.NOT_FOUND, "Doctor not found");
+        return message(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to delete doctor");
+    }
+
+    @GetMapping("/{name}/{time}/{specialty}")
+    public Map<String, Object> filter(@PathVariable String name, @PathVariable String time,
+                                      @PathVariable String specialty) {
+        return service.filterDoctor(name, specialty, time);
+    }
+
+    private boolean isAuthorized(String token, String role) { return service.validateToken(token, role).getStatusCode().is2xxSuccessful(); }
+    private ResponseEntity<Map<String, String>> unauthorized() { return message(HttpStatus.UNAUTHORIZED, "Invalid or expired token"); }
+    private ResponseEntity<Map<String, String>> message(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
+    }
 
 // 1. Set Up the Controller Class:
 //    - Annotate the class with `@RestController` to define it as a REST controller that serves JSON responses.
