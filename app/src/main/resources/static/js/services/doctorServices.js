@@ -4,12 +4,12 @@
  * Service functions for doctor-related API operations.
  */
 
-import { BASE_API_URL } from "../config/config.js";
+import { API_BASE_URL } from "../config/config.js";
 
 /*
  * Doctor API Endpoint
  */
-const DOCTOR_API = `${BASE_API_URL}/doctor`;
+const DOCTOR_API = `${API_BASE_URL}/doctor`;
 
 
 /*

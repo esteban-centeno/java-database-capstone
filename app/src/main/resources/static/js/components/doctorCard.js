@@ -11,7 +11,7 @@
 
 import { showBookingOverlay } from "../loggedPatient.js";
 import { deleteDoctor } from "../services/doctorServices.js";
-import { getPatientDetails } from "../services/patientServices.js";
+import { getPatientData } from "../services/patientServices.js";
 
 
 /*
@@ -196,7 +196,7 @@ export function createDoctorCard(doctor) {
 
                     // Retrieve patient information
                     const patient =
-                        await getPatientDetails(token);
+                        await getPatientData(token);
 
 
                     // Display booking overlay
