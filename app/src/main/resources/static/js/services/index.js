@@ -5,14 +5,14 @@
  */
 
 import { openModal } from "../components/modals.js";
-import { BASE_API_URL } from "../config/config.js";
+import { API_BASE_URL } from "../config/config.js";
 
 
 /*
  * API Endpoints
  */
-const ADMIN_API = `${BASE_API_URL}/admin/login`;
-const DOCTOR_API = `${BASE_API_URL}/doctor/login`;
+const ADMIN_API = `${API_BASE_URL}/admin/login`;
+const DOCTOR_API = `${API_BASE_URL}/doctor/login`;
 
 
 /*
@@ -20,8 +20,8 @@ const DOCTOR_API = `${BASE_API_URL}/doctor/login`;
  */
 window.addEventListener("load", () => {
 
-    const adminLoginButton = document.getElementById("adminLogin");
-    const doctorLoginButton = document.getElementById("doctorLogin");
+    const adminLoginButton = document.getElementById("adminBtn");
+    const doctorLoginButton = document.getElementById("doctorBtn");
 
 
     if (adminLoginButton) {
