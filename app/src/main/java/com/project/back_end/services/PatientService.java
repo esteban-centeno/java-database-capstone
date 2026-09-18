@@ -1,6 +1,82 @@
 package com.project.back_end.services;
 
+import com.project.back_end.DTO.AppointmentDTO;
+import com.project.back_end.models.Appointment;
+import com.project.back_end.models.Patient;
+import com.project.back_end.repo.AppointmentRepository;
+import com.project.back_end.repo.PatientRepository;
+import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
 public class PatientService {
+    private final PatientRepository patientRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final TokenService tokenService;
+
+    public PatientService(PatientRepository patientRepository, AppointmentRepository appointmentRepository,
+                          TokenService tokenService) {
+        this.patientRepository = patientRepository;
+        this.appointmentRepository = appointmentRepository;
+        this.tokenService = tokenService;
+    }
+
+    public int createPatient(Patient patient) {
+        try { patientRepository.save(patient); return 1; }
+        catch (RuntimeException exception) { return 0; }
+    }
+
+    @Transactional(readOnly = true)
+    public List<AppointmentDTO> getPatientAppointment(Long patientId) {
+        return toDtos(appointmentRepository.findByPatientId(patientId));
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> filterByCondition(String condition, Long patientId) {
+        Integer status = statusFor(condition);
+        if (status == null) return ResponseEntity.badRequest().body(Map.of("error", "Condition must be 'past' or 'future'"));
+        return ResponseEntity.ok(toDtos(appointmentRepository.findByPatient_IdAndStatusOrderByAppointmentTimeAsc(patientId, status)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AppointmentDTO> filterByDoctor(String doctorName, Long patientId) {
+        return toDtos(appointmentRepository.filterByDoctorNameAndPatientId(doctorName, patientId));
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> filterByDoctorAndCondition(String doctorName, String condition, Long patientId) {
+        Integer status = statusFor(condition);
+        if (status == null) return ResponseEntity.badRequest().body(Map.of("error", "Condition must be 'past' or 'future'"));
+        return ResponseEntity.ok(toDtos(appointmentRepository.filterByDoctorNameAndPatientIdAndStatus(doctorName, patientId, status)));
+    }
+
+    public ResponseEntity<?> getPatientDetails(String token) {
+        try {
+            Patient patient = patientRepository.findByEmail(tokenService.extractEmail(token));
+            return patient == null ? ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Patient not found"))
+                    : ResponseEntity.ok(patient);
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
+        }
+    }
+
+    private Integer statusFor(String condition) {
+        if ("future".equalsIgnoreCase(condition)) return 0;
+        if ("past".equalsIgnoreCase(condition)) return 1;
+        return null;
+    }
+
+    private List<AppointmentDTO> toDtos(List<Appointment> appointments) {
+        return appointments.stream().map(appointment -> new AppointmentDTO(
+                appointment.getId(), appointment.getDoctor().getId(), appointment.getDoctor().getName(),
+                appointment.getPatient().getId(), appointment.getPatient().getName(),
+                appointment.getPatient().getEmail(), appointment.getPatient().getPhone(),
+                appointment.getPatient().getAddress(), appointment.getAppointmentTime(), appointment.getStatus())).toList();
+    }
 // 1. **Add @Service Annotation**:
 //    - The `@Service` annotation is used to mark this class as a Spring service component. 
 //    - It will be managed by Spring's container and used for business logic related to patients and appointments.

@@ -1,6 +1,64 @@
 package com.project.back_end.services;
 
+import com.project.back_end.repo.AdminRepository;
+import com.project.back_end.repo.DoctorRepository;
+import com.project.back_end.repo.PatientRepository;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import javax.crypto.SecretKey;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
 public class TokenService {
+    private final AdminRepository adminRepository;
+    private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
+    private final String secret;
+
+    public TokenService(AdminRepository adminRepository, DoctorRepository doctorRepository,
+                        PatientRepository patientRepository, @Value("${jwt.secret}") String secret) {
+        this.adminRepository = adminRepository;
+        this.doctorRepository = doctorRepository;
+        this.patientRepository = patientRepository;
+        this.secret = secret;
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String generateToken(String email) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .issuedAt(java.util.Date.from(now))
+                .expiration(java.util.Date.from(now.plus(7, ChronoUnit.DAYS)))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public String extractEmail(String token) {
+        return Jwts.parser().verifyWith(getSigningKey()).build()
+                .parseSignedClaims(token).getPayload().getSubject();
+    }
+
+    public boolean validateToken(String token, String role) {
+        try {
+            String identity = extractEmail(token);
+            return switch (role.toLowerCase(java.util.Locale.ROOT)) {
+                case "admin" -> adminRepository.findByUsername(identity) != null;
+                case "doctor" -> doctorRepository.findByEmail(identity) != null;
+                case "patient" -> patientRepository.findByEmail(identity) != null;
+                default -> false;
+            };
+        } catch (RuntimeException exception) {
+            return false;
+        }
+    }
 // 1. **@Component Annotation**
 // The @Component annotation marks this class as a Spring component, meaning Spring will manage it as a bean within its application context.
 // This allows the class to be injected into other Spring-managed components (like services or controllers) where it's needed.

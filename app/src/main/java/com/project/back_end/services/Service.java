@@ -1,6 +1,130 @@
 package com.project.back_end.services;
 
+import com.project.back_end.DTO.AppointmentDTO;
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Admin;
+import com.project.back_end.models.Appointment;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.models.Patient;
+import com.project.back_end.repo.AdminRepository;
+import com.project.back_end.repo.DoctorRepository;
+import com.project.back_end.repo.PatientRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+@org.springframework.stereotype.Service
 public class Service {
+    private final TokenService tokenService;
+    private final AdminRepository adminRepository;
+    private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
+    private final DoctorService doctorService;
+    private final PatientService patientService;
+
+    public Service(TokenService tokenService, AdminRepository adminRepository, DoctorRepository doctorRepository,
+                   PatientRepository patientRepository, DoctorService doctorService, PatientService patientService) {
+        this.tokenService = tokenService;
+        this.adminRepository = adminRepository;
+        this.doctorRepository = doctorRepository;
+        this.patientRepository = patientRepository;
+        this.doctorService = doctorService;
+        this.patientService = patientService;
+    }
+
+    public ResponseEntity<?> validateToken(String token, String role) {
+        if (tokenService.validateToken(token, role)) return ResponseEntity.ok().build();
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid or expired token"));
+    }
+
+    public ResponseEntity<?> validateAdmin(Admin admin) {
+        try {
+            Admin persisted = adminRepository.findByUsername(admin.getUsername());
+            if (persisted == null || !Objects.equals(persisted.getPassword(), admin.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid username or password"));
+            }
+            return ResponseEntity.ok(Map.of("token", tokenService.generateToken(persisted.getUsername())));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unable to authenticate admin"));
+        }
+    }
+
+    public List<Doctor> filterDoctor(String name, String specialty, String time) {
+        boolean hasName = hasText(name), hasSpecialty = hasText(specialty), hasTime = hasText(time);
+        if (hasName && hasSpecialty && hasTime) return doctorService.filterDoctorsByNameSpecilityandTime(name, specialty, time);
+        if (hasName && hasSpecialty) return doctorService.filterDoctorByNameAndSpecility(name, specialty);
+        if (hasName && hasTime) return doctorService.filterDoctorByNameAndTime(name, time);
+        if (hasSpecialty && hasTime) return doctorService.filterDoctorByTimeAndSpecility(time, specialty);
+        if (hasName) return doctorService.findDoctorByName(name);
+        if (hasSpecialty) return doctorService.filterDoctorBySpecility(specialty);
+        if (hasTime) return doctorService.filterDoctorsByTime(time);
+        return doctorService.getDoctors();
+    }
+
+    public int validateAppointment(Long doctorId, LocalDate date, LocalTime appointmentTime) {
+        if (!doctorRepository.existsById(doctorId)) return -1;
+        return doctorService.getDoctorAvailability(doctorId, date).stream()
+                .anyMatch(slot -> slotStartsAt(slot, appointmentTime)) ? 1 : 0;
+    }
+
+    public int validateAppointment(Doctor doctor, LocalDateTime appointmentTime) {
+        if (doctor == null || doctor.getId() == null) return -1;
+        return validateAppointment(doctor.getId(), appointmentTime.toLocalDate(), appointmentTime.toLocalTime());
+    }
+
+    public int validateAppointment(Appointment appointment) {
+        if (appointment == null) return -1;
+        return validateAppointment(appointment.getDoctor(), appointment.getAppointmentTime());
+    }
+
+    public boolean validatePatient(Patient patient) {
+        return patient != null && patientRepository.findByEmailOrPhone(patient.getEmail(), patient.getPhone()) == null;
+    }
+
+    public ResponseEntity<?> validatePatientLogin(Patient patient) {
+        try {
+            Patient persisted = patientRepository.findByEmail(patient.getEmail());
+            if (persisted == null || !Objects.equals(persisted.getPassword(), patient.getPassword())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
+            }
+            return ResponseEntity.ok(Map.of("token", tokenService.generateToken(persisted.getEmail())));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Unable to authenticate patient"));
+        }
+    }
+
+    public ResponseEntity<?> validatePatientLogin(Login login) {
+        Patient patient = new Patient();
+        patient.setEmail(login.getEmail());
+        patient.setPassword(login.getPassword());
+        return validatePatientLogin(patient);
+    }
+
+    public ResponseEntity<?> filterPatient(String token, String condition, String doctorName) {
+        try {
+            Patient patient = patientRepository.findByEmail(tokenService.extractEmail(token));
+            if (patient == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Patient not found"));
+            if (hasText(condition) && hasText(doctorName)) return patientService.filterByDoctorAndCondition(doctorName, condition, patient.getId());
+            if (hasText(condition)) return patientService.filterByCondition(condition, patient.getId());
+            if (hasText(doctorName)) return ResponseEntity.ok(patientService.filterByDoctor(doctorName, patient.getId()));
+            List<AppointmentDTO> appointments = patientService.getPatientAppointment(patient.getId());
+            return ResponseEntity.ok(appointments);
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
+        }
+    }
+
+    private boolean hasText(String value) { return value != null && !value.isBlank(); }
+
+    private boolean slotStartsAt(String slot, LocalTime time) {
+        try { return LocalTime.parse(slot.split("-")[0].trim()).equals(time); }
+        catch (RuntimeException exception) { return false; }
+    }
 // 1. **@Service Annotation**
 // The @Service annotation marks this class as a service component in Spring. This allows Spring to automatically detect it through component scanning
 // and manage its lifecycle, enabling it to be injected into controllers or other services using @Autowired or constructor injection.

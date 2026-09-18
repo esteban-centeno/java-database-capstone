@@ -134,5 +134,8 @@ public class Appointment {
 
   public void setAppointmentTime(LocalDateTime appointmentTime) { this.appointmentTime = appointmentTime; }
 
-}
+  public int getStatus() { return this.status; }
 
+  public void setStatus(int status) { this.status = status; }
+
+}

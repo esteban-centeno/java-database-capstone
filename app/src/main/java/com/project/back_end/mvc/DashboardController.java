@@ -1,6 +1,19 @@
 package com.project.back_end.mvc;
 
+import com.project.back_end.services.Service;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@Controller
 public class DashboardController {
+
+    private final Service service;
+
+    public DashboardController(Service service) {
+        this.service = service;
+    }
 
 // 1. Set Up the MVC Controller Class:
 //    - Annotate the class with `@Controller` to indicate that it serves as an MVC controller returning view names (not JSON).
@@ -18,6 +31,14 @@ public class DashboardController {
 //    - If the token is valid (i.e., no errors returned), forwards the user to the `"admin/adminDashboard"` view.
 //    - If invalid, redirects to the root URL, likely the login or home page.
 
+    @GetMapping("/adminDashboard/{token}")
+    public String adminDashboard(@PathVariable String token) {
+        ResponseEntity<?> validationResult = service.validateToken(token, "admin");
+        return validationResult.getStatusCode().is2xxSuccessful()
+                ? "admin/adminDashboard"
+                : "redirect:/";
+    }
+
 
 // 4. Define the `doctorDashboard` Method:
 //    - Handles HTTP GET requests to `/doctorDashboard/{token}`.
@@ -25,6 +46,14 @@ public class DashboardController {
 //    - Validates the token using the shared service for the `"doctor"` role.
 //    - If the token is valid, forwards the user to the `"doctor/doctorDashboard"` view.
 //    - If the token is invalid, redirects to the root URL.
+
+    @GetMapping("/doctorDashboard/{token}")
+    public String doctorDashboard(@PathVariable String token) {
+        ResponseEntity<?> validationResult = service.validateToken(token, "doctor");
+        return validationResult.getStatusCode().is2xxSuccessful()
+                ? "doctor/doctorDashboard"
+                : "redirect:/";
+    }
 
 
 }

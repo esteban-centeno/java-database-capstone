@@ -1,6 +1,137 @@
 package com.project.back_end.services;
 
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.repo.AppointmentRepository;
+import com.project.back_end.repo.DoctorRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
 public class DoctorService {
+    private final DoctorRepository doctorRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final TokenService tokenService;
+
+    public DoctorService(DoctorRepository doctorRepository, AppointmentRepository appointmentRepository,
+                         TokenService tokenService) {
+        this.doctorRepository = doctorRepository;
+        this.appointmentRepository = appointmentRepository;
+        this.tokenService = tokenService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getDoctorAvailability(Long doctorId, LocalDate date) {
+        Doctor doctor = doctorRepository.findById(doctorId).orElse(null);
+        if (doctor == null || doctor.getAvailableTimes() == null) return List.of();
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        List<LocalTime> booked = appointmentRepository.findByDoctorIdAndAppointmentTimeBetween(doctorId, start, end)
+                .stream().map(a -> a.getAppointmentTime().toLocalTime()).toList();
+        return doctor.getAvailableTimes().stream()
+                .filter(Objects::nonNull)
+                .filter(slot -> booked.stream().noneMatch(time -> slotStartsAt(slot, time)))
+                .toList();
+    }
+
+    public int saveDoctor(Doctor doctor) {
+        try {
+            if (doctorRepository.findByEmail(doctor.getEmail()) != null) return -1;
+            doctorRepository.save(doctor);
+            return 1;
+        } catch (RuntimeException exception) { return 0; }
+    }
+
+    public int updateDoctor(Doctor doctor) {
+        try {
+            if (doctor.getId() == null || !doctorRepository.existsById(doctor.getId())) return -1;
+            doctorRepository.save(doctor);
+            return 1;
+        } catch (RuntimeException exception) { return 0; }
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> getDoctors() { return doctorRepository.findAll(); }
+
+    @Transactional
+    public int deleteDoctor(Long doctorId) {
+        try {
+            if (!doctorRepository.existsById(doctorId)) return -1;
+            appointmentRepository.deleteAllByDoctorId(doctorId);
+            doctorRepository.deleteById(doctorId);
+            return 1;
+        } catch (RuntimeException exception) { return 0; }
+    }
+
+    public ResponseEntity<Map<String, String>> validateDoctor(Doctor doctor) {
+        Doctor persisted = doctorRepository.findByEmail(doctor.getEmail());
+        if (persisted == null || !Objects.equals(persisted.getPassword(), doctor.getPassword()))
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid email or password"));
+        return ResponseEntity.ok(Map.of("token", tokenService.generateToken(persisted.getEmail())));
+    }
+
+    public ResponseEntity<Map<String, String>> validateDoctor(Login login) {
+        Doctor doctor = new Doctor();
+        doctor.setEmail(login.getEmail());
+        doctor.setPassword(login.getPassword());
+        return validateDoctor(doctor);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> findDoctorByName(String name) { return doctorRepository.findByNameContainingIgnoreCase(name); }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorsByNameSpecilityandTime(String name, String specialty, String time) {
+        return filterDoctorByTime(doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty), time);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorByTime(List<Doctor> doctors, String time) {
+        return doctors.stream().filter(doctor -> doctor.getAvailableTimes() != null
+                && doctor.getAvailableTimes().stream().anyMatch(slot -> matchesPeriod(slot, time))).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorByNameAndTime(String name, String time) {
+        return filterDoctorByTime(findDoctorByName(name), time);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorByNameAndSpecility(String name, String specialty) {
+        return doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(name, specialty);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorByTimeAndSpecility(String time, String specialty) {
+        return filterDoctorByTime(doctorRepository.findBySpecialtyIgnoreCase(specialty), time);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorBySpecility(String specialty) { return doctorRepository.findBySpecialtyIgnoreCase(specialty); }
+
+    @Transactional(readOnly = true)
+    public List<Doctor> filterDoctorsByTime(String time) { return filterDoctorByTime(doctorRepository.findAll(), time); }
+
+    private boolean slotStartsAt(String slot, LocalTime time) {
+        try { return LocalTime.parse(slot.split("-")[0].trim()).equals(time); }
+        catch (RuntimeException exception) { return false; }
+    }
+
+    private boolean matchesPeriod(String slot, String period) {
+        try {
+            int hour = LocalTime.parse(slot.split("-")[0].trim()).getHour();
+            return "am".equalsIgnoreCase(period) ? hour < 12 : "pm".equalsIgnoreCase(period) && hour >= 12;
+        } catch (RuntimeException exception) { return false; }
+    }
 
 // 1. **Add @Service Annotation**:
 //    - This class should be annotated with `@Service` to indicate that it is a service layer class.
