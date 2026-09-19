@@ -10,6 +10,10 @@ import org.springframework.stereotype.Repository;
 public interface DoctorRepository extends JpaRepository<Doctor, Long> {
     Doctor findByEmail(String email);
 
+    @Override
+    @EntityGraph(attributePaths = "availableTimes")
+    List<Doctor> findAll();
+
     @EntityGraph(attributePaths = "availableTimes")
     List<Doctor> findByNameContainingIgnoreCase(String name);
 

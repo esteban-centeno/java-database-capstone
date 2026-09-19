@@ -6,6 +6,7 @@
 
 import { openModal } from "../components/modals.js";
 import { API_BASE_URL } from "../config/config.js";
+import { patientLogin } from "./patientServices.js";
 
 
 /*
@@ -21,6 +22,7 @@ const DOCTOR_API = `${API_BASE_URL}/doctor/login`;
 window.addEventListener("load", () => {
 
     const adminLoginButton = document.getElementById("adminBtn");
+    const patientLoginButton = document.getElementById("patientBtn");
     const doctorLoginButton = document.getElementById("doctorBtn");
 
 
@@ -32,6 +34,14 @@ window.addEventListener("load", () => {
 
     }
 
+
+    if (patientLoginButton) {
+
+        patientLoginButton.addEventListener("click", () => {
+            openModal("patientLogin");
+        });
+
+    }
 
     if (doctorLoginButton) {
 
@@ -164,6 +174,40 @@ window.doctorLoginHandler = async function () {
         alert("An unexpected error occurred. Please try again.");
 
     }
+
+};
+
+/*
+ * Handles Patient login
+ */
+window.loginPatient = async function () {
+    try {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        const data = {
+            email,
+            password
+        }
+        console.log("loginPatient :: ", data)
+        const response = await patientLogin(data);
+        console.log("Status Code:", response.status);
+        console.log("Response OK:", response.ok);
+        if (response.ok) {
+            const result = await response.json();
+            console.log(result);
+            selectRole('loggedPatient');
+            localStorage.setItem('token', result.token)
+            window.location.href = '/pages/loggedPatientDashboard.html';
+        } else {
+            alert('❌ Invalid credentials!');
+        }
+    }
+    catch (error) {
+        alert("❌ Failed to Login : ", error);
+        console.log("Error :: loginPatient :: ", error)
+    }
+
 
 };
 /*

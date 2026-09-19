@@ -1,4 +1,11 @@
 // modals.js
+export function closeModal() {
+  const modal = document.getElementById('modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
 export function openModal(type) {
   let modalContent = '';
   if (type === 'addDoctor') {
@@ -75,9 +82,7 @@ export function openModal(type) {
   document.getElementById('modal-body').innerHTML = modalContent;
   document.getElementById('modal').style.display = 'block';
 
-  document.getElementById('closeModal').onclick = () => {
-    document.getElementById('modal').style.display = 'none';
-  };
+  document.getElementById('closeModal').onclick = closeModal;
 
   if (type === "patientSignup") {
     document.getElementById("signupBtn").addEventListener("click", signupPatient);

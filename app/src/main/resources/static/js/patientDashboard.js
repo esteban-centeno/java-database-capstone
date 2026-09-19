@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  const loginBtn = document.getElementById("patientLogin")
+  const loginBtn = document.getElementById("patientBtn")
   if (loginBtn) {
     loginBtn.addEventListener("click", () => {
       openModal("patientLogin")
